@@ -7,7 +7,7 @@
     <ProjectGuid>{91D92626-17D9-4DDA-8D42-30C56FDF3C16}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>CreateModule</RootNamespace>
-    <AssemblyName>CreateModule</AssemblyName>
+    <AssemblyName>create-zend-module</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>

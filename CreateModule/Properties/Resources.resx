@@ -117,10 +117,9 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="configTemplate" xml:space="preserve">
+  <data name="ConfigTemplate" xml:space="preserve">
     <value>&lt;?php
-
-namespace $moduleName$;
+namespace {{moduleName}};
 
 use Zend\Router\Http\Segment;
 use Zend\ServiceManager\Factory\InvokableFactory;
@@ -128,17 +127,17 @@ use Zend\ServiceManager\Factory\InvokableFactory;
 return [
     'router' =&gt; [
         'routes' =&gt; [
-            '$moduleUrl$' =&gt; [
-                'type'    =&gt; Segment::class,
+            '{{moduleUrl}}' =&gt; [
+                'type' =&gt; Segment::class,
                 'options' =&gt; [
-                    'route'    =&gt; '/$moduleUrl$[/:action][/:id]',
+                    'route' =&gt; '/{{moduleUrl}}[/:action][/:id]',
                     'constraints' =&gt; [
                         'action' =&gt; '[a-zA-Z][a-zA-Z0-9_-]*',
-                        'id'     =&gt; '[0-9]+',
+                        'id' =&gt; '[0-9]+',
                     ],
                     'defaults' =&gt; [
-                        'controller' =&gt; Controller\$moduleName$Controller::class,
-                        'action'     =&gt; 'index',
+                        'controller' =&gt; Controller\{{moduleName}}Controller::class,
+                        'action' =&gt; 'index',
                     ],
                 ],
             ],
@@ -147,36 +146,34 @@ return [
     
     'controllers' =&gt; [
         'factories' =&gt; [
-            Controller\$moduleName$Controller::class =&gt; InvokableFactory::class,
+            Controller\{{moduleName}}Controller::class =&gt; InvokableFactory::class,
         ],
     ],
     'view_manager' =&gt; [
         'template_path_stack' =&gt; [
-            '$moduleUrl$' =&gt; __DIR__ . '/../view',
+            '{{moduleUrl}}' =&gt; __DIR__ . '/../view',
         ],
     ],
 ];</value>
   </data>
-  <data name="controllerTemplate" xml:space="preserve">
+  <data name="ControllerTemplate" xml:space="preserve">
     <value>&lt;?php
-
-namespace $moduleName$\Controller;
+namespace {{moduleName}}\Controller;
 
 use Zend\Mvc\Controller\AbstractActionController;
 use Zend\View\Model\ViewModel;
 
-class $moduleName$Controller extends AbstractActionController
+class {{moduleName}}Controller extends AbstractActionController
 {
     public function indexAction()
     {
         return new ViewModel();
     }
-
 }</value>
   </data>
-  <data name="srcConfigTemplate" xml:space="preserve">
+  <data name="SourceConfigTemplate" xml:space="preserve">
     <value>&lt;?php
-namespace $moduleName$;
+namespace {{moduleName}};
 
 class Module
 {
@@ -188,10 +185,7 @@ class Module
     }
 }</value>
   </data>
-  <data name="viewTemplate" xml:space="preserve">
-    <value>&lt;h2&gt;$moduleName$ index&lt;/h2&gt;</value>
-  </data>
-  <data name="asd" xml:space="preserve">
-    <value>Module {0} successfully created!</value>
+  <data name="ViewTemplate" xml:space="preserve">
+    <value>&lt;h2&gt;{{moduleName}} index&lt;/h2&gt;</value>
   </data>
 </root>
