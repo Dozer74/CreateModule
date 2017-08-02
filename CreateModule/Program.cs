@@ -1,23 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using CreateModule.Properties;
 
 namespace CreateModule
 {
     static class Extensions
     {
-        public static string ReplacePlaceholders(this string content, Dictionary<string, string> placeholders)
+        public static string Render(this string content, Dictionary<string, string> placeholders)
         {
             var result = content;
             foreach (var pair in placeholders)
             {
-                result = result.Replace(pair.Key, pair.Value);
+                result = result.Replace($"{{{{{pair.Key}}}}}", pair.Value);
             }
             return result;
         }
@@ -27,86 +23,125 @@ namespace CreateModule
     {
         static void Main(string[] args)
         {
-            if (args.Length != 1)
+            #region Arguments
+            if (args.Length == 0)
             {
-                Console.WriteLine("Usage:\n cm <Module name>");
+                Console.WriteLine("Usage: create-zend-module <name> [-p | --path <path>]");
+                Console.WriteLine("\t-p | --path <path>\tPath to Zend project root directory");
                 return;
             }
 
-            const string pref = "module";
+            string moduleName = args[0];
+            string path = Environment.CurrentDirectory;
 
-            var moduleName = args[0];
-            var url = moduleName.ToLower();
-
-            var rx = new Regex(@"([a-z])([A-Z])", RegexOptions.Compiled);
-            var dirName = rx.Replace(moduleName, "$1-$2").ToLower();
-
-            if (!Directory.Exists(pref))
+            if (args.Length == 2 || args.Length == 3)
             {
-                Console.WriteLine("Can't find \"module\" directory!");
+                switch (args[1])
+                {
+                    case "-p":
+                    case "--path":
+                        if (args.Length == 3)
+                        {
+                            path = Path.GetFullPath(Path.Combine(path, args[2]));
+                        }
+                        break;
+                    default:
+                        Console.WriteLine($"Unknown option: {args[1]}");
+                        return;
+                }
+            }
+            #endregion
+
+            string moduleRoot = $"{path}\\module";
+            string moduleDirectory = $"{path}\\module\\{moduleName}";
+            string moduleUrl = moduleName.ToLower();
+            string moduleViewName  = Regex.Replace(moduleName, @"([a-z])([A-Z])", "$1-$2").ToLower();
+
+            if (!Directory.Exists(moduleRoot))
+            {
+                Console.WriteLine("Can't find \"module\" directory.");
                 return;
             }
 
-            var modulePath = $"{pref}\\{moduleName}";
-
-            if (Directory.Exists(modulePath))
+            if (Directory.Exists(moduleDirectory))
             {
-                Console.WriteLine($"Module \"{moduleName}\" already exists!");
+                Console.WriteLine($"Module \"{moduleName}\" already exists.");
                 return;
             }
 
+            #region Templates
             Console.Write($"Creating module \"{moduleName}\"... ");
 
-            var placeholders = new Dictionary<string, string>
+            var data = new Dictionary<string, string>
             {
-                {"$moduleName$", moduleName},
-                {"$moduleUrl$", url}
+                {"moduleName", moduleName},
+                {"moduleUrl" , moduleUrl }
             };
 
-            var configFile = Resources.configTemplate.ReplacePlaceholders(placeholders);
-            var srcConfigFile = Resources.srcConfigTemplate.ReplacePlaceholders(placeholders);
-            var controllerFile = Resources.controllerTemplate.ReplacePlaceholders(placeholders);
-            var viewFile = Resources.viewTemplate.ReplacePlaceholders(placeholders);
+            var configText       = Resources.ConfigTemplate.Render(data);
+            var sourceConfigText = Resources.SourceConfigTemplate.Render(data);
+            var controllerText   = Resources.ControllerTemplate.Render(data);
+            var viewText         = Resources.ViewTemplate.Render(data);
 
-            Directory.CreateDirectory(modulePath);
-            Directory.CreateDirectory($"{modulePath}\\config");
-            Directory.CreateDirectory($"{modulePath}\\src");
-            Directory.CreateDirectory($"{modulePath}\\src\\Controller");
-            Directory.CreateDirectory($"{modulePath}\\view");
-            Directory.CreateDirectory($"{modulePath}\\view\\{dirName}");
-            Directory.CreateDirectory($"{modulePath}\\view\\{dirName}\\{dirName}");
+            Directory.CreateDirectory(moduleDirectory);
+            Directory.CreateDirectory($"{moduleDirectory}\\config");
+            Directory.CreateDirectory($"{moduleDirectory}\\src");
+            Directory.CreateDirectory($"{moduleDirectory}\\src\\Controller");
+            Directory.CreateDirectory($"{moduleDirectory}\\view");
+            Directory.CreateDirectory($"{moduleDirectory}\\view\\{moduleViewName}");
+            Directory.CreateDirectory($"{moduleDirectory}\\view\\{moduleViewName}\\{moduleViewName}");
 
-            File.WriteAllText($"{modulePath}\\config\\module.config.php", configFile);
-            File.WriteAllText($"{modulePath}\\src\\Module.php", srcConfigFile);
-            File.WriteAllText($"{modulePath}\\src\\Controller\\{moduleName}Controller.php", controllerFile);
-            File.WriteAllText($"{modulePath}\\view\\{dirName}\\{dirName}\\index.phtml", viewFile);
+            File.WriteAllText($"{moduleDirectory}\\config\\module.config.php", configText);
+            File.WriteAllText($"{moduleDirectory}\\src\\Module.php", sourceConfigText);
+            File.WriteAllText($"{moduleDirectory}\\src\\Controller\\{moduleName}Controller.php", controllerText);
+            File.WriteAllText($"{moduleDirectory}\\view\\{moduleViewName}\\{moduleViewName}\\index.phtml", viewText);
 
-            Console.WriteLine("Ok.");
+            Console.WriteLine("OK.");
+            #endregion
+
+            #region Chache
             Console.Write("Cleaning cache... ");
 
-            string currentDirectory = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-            foreach (var cacheFile in Directory.GetFiles($"{currentDirectory}\\data\\cache", "*cache.php"))
+            string cacheDirectory = $"{path}\\data\\cache";
+            if (Directory.Exists(cacheDirectory))
             {
-                File.Delete(cacheFile);
+                foreach (var cacheFile in Directory.GetFiles(cacheDirectory, "*cache.php"))
+                {
+                    File.Delete(cacheFile);
+                }
             }
 
-            Console.WriteLine("Ok.");
+            Console.WriteLine("OK.");
+            #endregion
+
+            #region Autoload
             Console.Write("Adding to autoload... ");
 
-            var globalConfigFile = File.ReadAllText("config\\modules.config.php");
-            globalConfigFile = globalConfigFile.Insert(globalConfigFile.LastIndexOf("'") + 1,
-                $",\n    \'{moduleName}\'");
-            File.WriteAllText($"{currentDirectory}\\config\\modules.config.php", globalConfigFile);
+            try
+            {
+                // WTF magic?!
+                var globalConfigText = File.ReadAllText($"{path}\\config\\modules.config.php");
+                globalConfigText = globalConfigText.Insert(
+                    globalConfigText.LastIndexOf("'") + 1,
+                    $",\n    \'{moduleName}\'");
 
-            var composerFile = File.ReadAllText("composer.json");
-            composerFile = composerFile.Insert(composerFile.LastIndexOf("src/\"") + 5,
-                $",\n            \"{moduleName}\\\\\": \"module/{moduleName}/src/\"");
+                File.WriteAllText($"{path}\\config\\modules.config.php", globalConfigText);
 
-            File.WriteAllText($"{currentDirectory}\\composer.json", composerFile);
+                // WTF magic?!
+                var composerFile = File.ReadAllText($"{path}\\composer.json");
+                composerFile = composerFile.Insert(
+                    composerFile.LastIndexOf("src/\"") + 5,
+                    $",\n            \"{moduleName}\\\\\": \"module/{moduleName}/src/\"");
 
-            Console.WriteLine("Ok.");
-            Console.WriteLine($"Module {moduleName} successfully created!");
-            Console.WriteLine("Run \"composer install\" to update autoload");
+                File.WriteAllText($"{path}\\composer.json", composerFile);
+
+            }
+            catch {}
+
+            Console.WriteLine("OK.");
+            #endregion
+
+            Console.WriteLine($"Module {moduleName} successfully created. Run \"composer install\" to update autoload.");
         }
     }
 }
